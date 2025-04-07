@@ -1,7 +1,7 @@
 import duckdb
 import pandas as pd
 import matplotlib.pyplot as plt
-from finance_utils import get_puts_option_chain, get_dte
+from finance_utils import get_puts_option_chain, get_dte, get_possible_expiration_dates
 import argparse
 from datetime import datetime
 
@@ -47,7 +47,6 @@ def plot_csp_analysis(df: pd.DataFrame, details: dict, target_return: float = 10
 
 
 def get_args():
-    
     parser = argparse.ArgumentParser(description='Analyze Cash Secured Put options for a given stock')
     parser.add_argument(
         'ticker', 
@@ -55,11 +54,10 @@ def get_args():
         help='Stock ticker symbol (e.g., AAPL)'
     )
     parser.add_argument(
-        '--expiration_date', 
+        '--expiration-date', 
         '-e',
-        default=datetime.now().strftime('%Y-%m-%d'),
         type=str, 
-        help='Option expiration date in YYYY-MM-DD format'
+        help='Option expiration date in YYYY-MM-DD format. If not provided, will show available dates.'
     )
     parser.add_argument(
         '--target-return', 
@@ -69,17 +67,44 @@ def get_args():
         help='Target annualized return percentage (default: 10)'
     )
     args = parser.parse_args()
-    try:
-        datetime.strptime(args.expiration_date, '%Y-%m-%d')
-    except ValueError:
-        parser.error("Expiration date must be in YYYY-MM-DD format")
+    
+    if args.expiration_date:
+        try:
+            datetime.strptime(args.expiration_date, '%Y-%m-%d')
+        except ValueError:
+            parser.error("Expiration date must be in YYYY-MM-DD format")
+    
     return args
 
-if __name__ == "__main__":
+def select_expiration_date(ticker_symbol: str) -> str:
+    available_dates = get_possible_expiration_dates(ticker_symbol)
     
+    print("\nAvailable expiration dates:")
+    for idx, date in enumerate(available_dates, 1):
+        print(f"{idx}. {date}")
+    
+    while True:
+        try:
+            choice = input("\nSelect a date (enter the number): ")
+            idx = int(choice) - 1
+            if 0 <= idx < len(available_dates):
+                selected_date = available_dates[idx]
+                return selected_date
+            else:
+                print("Invalid selection. Please try again.")
+        except ValueError:
+            print("Please enter a valid number.")
+
+if __name__ == "__main__":
     args = get_args()
     ticker_symbol = args.ticker.upper()
-    expiration_date = args.expiration_date
+    
+    if args.expiration_date:
+        expiration_date = args.expiration_date
+    else:
+        expiration_date = select_expiration_date(ticker_symbol)
+        print(f"\nSelected expiration date: {expiration_date}")
+        print("\n--------------------------------\n")
 
     puts_df = get_puts_option_chain(ticker_symbol, expiration_date)
 
