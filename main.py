@@ -1,9 +1,8 @@
 import duckdb
 import pandas as pd
 import matplotlib.pyplot as plt
-from finance_utils import get_puts_option_chain, get_dte, get_possible_expiration_dates
-import argparse
-from datetime import datetime
+from finance_utils import get_puts_option_chain, get_dte
+from cli_utils import process_cli_args
 
 
 def execute_query(query_path: str, params: dict = {}) -> pd.DataFrame:
@@ -14,11 +13,11 @@ def execute_query(query_path: str, params: dict = {}) -> pd.DataFrame:
     return duckdb.query(query).to_df()
 
 
-def plot_csp_analysis(df: pd.DataFrame, details: dict, target_return: float = 10):
+def plot_csp_analysis(df: pd.DataFrame, plot_details: dict, target_return: float = 10):
     plt.plot(df['strike'], df['annualized_return'], label='Annualized Return', marker='o')
     plt.xlabel('Strike Price')
     plt.ylabel('Annualized Return')
-    plt.title(f'Annualized Return vs. Strike Price [PUT {details["ticker_symbol"]} at {details["expiration_date"]}]')
+    plt.title(f'Annualized Return vs. Strike Price [PUT {plot_details["ticker_symbol"]} at {plot_details["expiration_date"]}]')
 
     plt.axhline(y=target_return, color='red', linestyle='--', label=f'Target Return ({target_return}%)')
 
@@ -45,83 +44,33 @@ def plot_csp_analysis(df: pd.DataFrame, details: dict, target_return: float = 10
     plt.grid(True)
     plt.show()
 
-
-def get_args():
-    parser = argparse.ArgumentParser(description='Analyze Cash Secured Put options for a given stock')
-    parser.add_argument(
-        'ticker', 
-        type=str, 
-        help='Stock ticker symbol (e.g., AAPL)'
-    )
-    parser.add_argument(
-        '--expiration-date', 
-        '-e',
-        type=str, 
-        help='Option expiration date in YYYY-MM-DD format. If not provided, will show available dates.'
-    )
-    parser.add_argument(
-        '--target-return', 
-        '-t',
-        type=float, 
-        default=10,
-        help='Target annualized return percentage (default: 10)'
-    )
-    args = parser.parse_args()
-    
-    if args.expiration_date:
-        try:
-            datetime.strptime(args.expiration_date, '%Y-%m-%d')
-        except ValueError:
-            parser.error("Expiration date must be in YYYY-MM-DD format")
-    
-    return args
-
-def select_expiration_date(ticker_symbol: str) -> str:
-    available_dates = get_possible_expiration_dates(ticker_symbol)
-    
-    print("\nAvailable expiration dates:")
-    for idx, date in enumerate(available_dates, 1):
-        print(f"{idx}. {date}")
-    
-    while True:
-        try:
-            choice = input("\nSelect a date (enter the number): ")
-            idx = int(choice) - 1
-            if 0 <= idx < len(available_dates):
-                selected_date = available_dates[idx]
-                return selected_date
-            else:
-                print("Invalid selection. Please try again.")
-        except ValueError:
-            print("Please enter a valid number.")
-
 if __name__ == "__main__":
-    args = get_args()
-    ticker_symbol = args.ticker.upper()
     
-    if args.expiration_date:
-        expiration_date = args.expiration_date
-    else:
-        expiration_date = select_expiration_date(ticker_symbol)
-        print(f"\nSelected expiration date: {expiration_date}")
-        print("\n--------------------------------\n")
+    cli_args = process_cli_args()
+    print(cli_args)
+    ticker_symbol = cli_args["ticker_symbol"]
+    expiration_date = cli_args["expiration_date"]
+    target_return = cli_args["target_return"]
+
+    ############################################################
 
     puts_df = get_puts_option_chain(ticker_symbol, expiration_date)
 
-    df = execute_query(
+    analysis_df = execute_query(
         query_path="./csp_analysis_query.sql",
         params={
             "DTE": get_dte(expiration_date), 
             "tbl": "puts_df"
         }
     )
-    print(df.head())
+    print(analysis_df.head())
+    # df.to_csv(f"output/{ticker_symbol}_{expiration_date}.csv", index=False)
 
     plot_csp_analysis(
-        df, 
-        details = {
+        analysis_df, 
+        plot_details = {
             "ticker_symbol": ticker_symbol,
             "expiration_date": expiration_date
         },
-        target_return=args.target_return
+        target_return=target_return
     )
