@@ -2,6 +2,8 @@ import duckdb
 import pandas as pd
 import matplotlib.pyplot as plt
 from finance_utils import get_puts_option_chain, get_dte
+import argparse
+from datetime import datetime
 
 
 def execute_query(query_path: str, params: dict = {}) -> pd.DataFrame:
@@ -44,11 +46,40 @@ def plot_csp_analysis(df: pd.DataFrame, details: dict, target_return: float = 10
     plt.show()
 
 
+def get_args():
+    
+    parser = argparse.ArgumentParser(description='Analyze Cash Secured Put options for a given stock')
+    parser.add_argument(
+        'ticker', 
+        type=str, 
+        help='Stock ticker symbol (e.g., AAPL)'
+    )
+    parser.add_argument(
+        '--expiration_date', 
+        '-e',
+        default=datetime.now().strftime('%Y-%m-%d'),
+        type=str, 
+        help='Option expiration date in YYYY-MM-DD format'
+    )
+    parser.add_argument(
+        '--target-return', 
+        '-t',
+        type=float, 
+        default=10,
+        help='Target annualized return percentage (default: 10)'
+    )
+    args = parser.parse_args()
+    try:
+        datetime.strptime(args.expiration_date, '%Y-%m-%d')
+    except ValueError:
+        parser.error("Expiration date must be in YYYY-MM-DD format")
+    return args
 
 if __name__ == "__main__":
-
-    ticker_symbol = "AAPL"
-    expiration_date = "2025-04-11"
+    
+    args = get_args()
+    ticker_symbol = args.ticker.upper()
+    expiration_date = args.expiration_date
 
     puts_df = get_puts_option_chain(ticker_symbol, expiration_date)
 
@@ -66,5 +97,6 @@ if __name__ == "__main__":
         details = {
             "ticker_symbol": ticker_symbol,
             "expiration_date": expiration_date
-        }
+        },
+        target_return=args.target_return
     )
