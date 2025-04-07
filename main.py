@@ -4,16 +4,12 @@ import matplotlib.pyplot as plt
 from finance_utils import get_puts_option_chain, get_dte
 
 
-def execute_query(query) -> pd.DataFrame:
-    return duckdb.query(query).to_df()
-
-
-def execute_analysis_query(query_path: str, params: dict = {}) -> pd.DataFrame:
+def execute_query(query_path: str, params: dict = {}) -> pd.DataFrame:
     with open(query_path, "r") as f:
         query = f.read()
     query = query.format(**params)
     print(query)
-    return execute_query(query)
+    return duckdb.query(query).to_df()
 
 
 def plot_csp_analysis(df: pd.DataFrame, details: dict, target_return: float = 10):
@@ -56,7 +52,7 @@ if __name__ == "__main__":
 
     puts_df = get_puts_option_chain(ticker_symbol, expiration_date)
 
-    df = execute_analysis_query(
+    df = execute_query(
         query_path="./csp_analysis_query.sql",
         params={
             "DTE": get_dte(expiration_date), 
