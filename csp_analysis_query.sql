@@ -12,4 +12,4 @@ FROM {tbl}
 WHERE
     1=1
     AND inTheMoney is False
---     AND bid > 0
+    AND bid > 0
